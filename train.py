@@ -10,14 +10,20 @@ import importlib
 
 from utils.MNISTDataset import MNISTDataset
 
+# importlib provides a direct mechanism to import a file/class based on a string
+# I use it to dynamically load the model architecture based on command line arguments
+# This lets you define multiple different models (in architectures/) and load them easily
 def import_architecture(architecture_name):
     architecture = getattr(importlib.import_module(f"architectures.{architecture_name}.architecture"), "Network")
     return architecture
 
 def feedforward_batch(model, device, data_loader, optimizer, is_train=True):
+    # Some parts of the model behave differently during training
     if is_train:
         model.train()
     else:
+        #   Since we don't want to train when processing the validation data, 
+        #   put the model in evaluation mode
         model.eval()
    
     epoch_correct = 0
@@ -27,35 +33,47 @@ def feedforward_batch(model, device, data_loader, optimizer, is_train=True):
         print(f"\tBatch {batch_idx + 1} / {len(data_loader)}", end=" | ")
         
         batch_X, batch_y = batch_X.to(device), batch_y.to(device)
+        
+        # zero_grad() ensures the optimizer isn't using the last 
+        # batch's information on the current batch
         if is_train:
             optimizer.zero_grad()
         
+        # Pass all the samples to the model for prediction
         predictions = model(batch_X)
         
+        # The model outputs 10 numbers (probability per class)
+        # The actual prediction is the largest number across the array
         pred_labels = predictions.argmax(dim=1)
-        true_labels = batch_y.argmax(dim=1)
+        true_labels = batch_y.argmax(dim=1) # Apply this to batch_y too, undoes the to_categorical call
         
+        # Add the correct guesses and total samples
         epoch_correct += (pred_labels == true_labels).sum().item()
         total_samples += len(batch_X)
         
+        #Compute the error between predictions and batch_y
         loss = model.loss(predictions, batch_y)
+        
+        # If we're training, call loss.backward()
+        # This is the actual backpropagation step
         if is_train:
-            loss.backward()
+            loss.backward() # Compute the adjustments for each weight
+            optimizer.step() # Apply them to the network
         
         epoch_losses.append(loss.item())
-
         print(f"loss={np.mean(epoch_losses)}", end="           \r")
-        if is_train:
-            optimizer.step()
-       
+   
+    # Compute the accuracy on the dataset
     epoch_accuracy = (epoch_correct / total_samples) * 100
     
     print()
     print(f"\t\tAccuracy: {epoch_accuracy}")
     print()
     
+    # Return the mean loss and accuracy of the model this epoch
     return np.mean(epoch_losses), epoch_accuracy
 
+# Click provides a convenient interface for command line arguments
 @click.command(context_settings=dict(max_content_width=800))
 @click.option('-m', "--model_name", required=True, help="Model architecture to train.")
 @click.option('-s', "--samples", required=False, help="Max number of samples to use.")
@@ -70,10 +88,12 @@ def main(
     device = torch.device("cuda")
 
     #Load the MNIST dataset torchvision
-    mnist = torchvision.datasets.MNIST(root="./data/", train=True, download=True)
+    mnist_train = torchvision.datasets.MNIST(root="./data/", train=True, download=True)
+    mnist_test = torchvision.datasets.MNIST(root="./data/", train=False, download=True)
 
-    X = mnist.data.numpy()
-    y = mnist.targets.numpy()
+    #MNIST has its own train/test split - I want to undo that and make my own
+    X = np.concatenate([mnist_train.data.numpy(), mnist_test.data.numpy()])
+    y = np.concatenate([mnist_train.targets.numpy(), mnist_test.targets.numpy()])
     
     #Shuffle X & y, preserving the 1-1 relationship
     indices = list(range(0, len(X)))
@@ -82,8 +102,8 @@ def main(
     X = X[indices]
     y = y[indices]
     
-    #Graph two samples for reference
     '''
+    #Graph two samples for reference
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(x_train[0], cmap='gray')
     ax[1].imshow(x_train[1], cmap='gray')
@@ -93,6 +113,7 @@ def main(
     exit()
     '''
 
+    # Whether I want to debug or produce a less performant model, this allows me to cut down on the dataset size
     if samples:
         samples = int(samples)
         X = X[:samples]
@@ -113,13 +134,19 @@ def main(
     print(f"Train: {len(X_train)} | {len(y_train)}")
     print(f"Val: {len(X_val)} | {len(y_val)}")
     print(f"Test: {len(X_test)} | {len(y_test)}")
-        
+    
+    # Data Loaders let us avoid loading the entire dataset in RAM all at once
+    #   Using the data loader, a batch of samples is loaded on demand and the memory is freed after its used
+    #   This sacrifices speed (more file i/o) for memory
     train_loader = DataLoader(MNISTDataset(X_train, y_train), batch_size=64, shuffle=True)
     val_loader = DataLoader(MNISTDataset(X_val, y_val), batch_size=64, shuffle=False)
     
     model = import_architecture(model_name)().to(device)
+
+    # Controls how backpropagation occurs
     optimizer = torch.optim.Adam(model.parameters())
     
+    # Create a dictionary to save information from this training session
     history = {
         'train_loss': [],
         'train_accuracy': [],
@@ -130,6 +157,7 @@ def main(
     if epochs:
         epochs = int(epochs)
     else:
+        # Default epochs to 10 unless otherwise specified
         epochs = 10
 
     for epoch in range(1, epochs + 1):
@@ -137,19 +165,22 @@ def main(
         train_loss, train_accuracy = feedforward_batch(model, device, train_loader, optimizer, is_train=True)
         val_loss, val_accuracy = feedforward_batch(model, device, val_loader, optimizer=None, is_train=False)
         
+        # Save epoch results to the history dict
         history['train_loss'].append(train_loss)
         history['train_accuracy'].append(train_accuracy)
         history['val_loss'].append(val_loss)
         history['val_accuracy'].append(val_accuracy)
-        
+    
+    # Save the model
+    # This lets us run predictions multiple times without needing to train a new model
     torch.save(model.state_dict(), f"architectures/{model_name}/model.pth")
-    metadata = {
-        "history": history,
-        "X_test": X_test,
-        "y_test": y_test
-    }
-    pickle.dump(metadata, open(f"architectures/{model_name}/training_metadata.pickle", "wb"))
+    
+    history["X_test"] = X_test
+    history["y_test"] = y_test
 
+    pickle.dump(history, open(f"architectures/{model_name}/training_history.pickle", "wb"))
+
+    # Graph the epoch losses and save to disk
     plt.plot(range(0, epochs), history['train_loss'], color='blue', label='train_loss')
     plt.plot(range(0, epochs), history['val_loss'], color='red', label='val_loss')
     plt.legend()
@@ -160,6 +191,7 @@ def main(
     
     plt.cla()
     
+    # Graph the epoch accuracies and save to disk
     plt.plot(range(0, epochs), history['train_accuracy'], color='blue', label=f"train_accuracy [max={np.max(history['train_accuracy']):.2f}]")
     plt.plot(range(0, epochs), history['val_accuracy'], color='red', label=f"val_accuracy [max={np.max(history['val_accuracy']):.2f}]")
     plt.legend()

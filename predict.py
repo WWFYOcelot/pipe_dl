@@ -23,13 +23,15 @@ def main(
 ):
     device = torch.device("cuda")
 
-    #Load the test dataset
-    metadata = pickle.load(open(f"architectures/{model_name}/training_metadata.pickle", "rb"))
+    # Load the test dataset
+    history = pickle.load(open(f"architectures/{model_name}/training_history.pickle", "rb"))
     X_test = metadata['X_test']
     y_test = metadata['y_test']
     
+    # Define the data loader for the testing data
     test_loader = DataLoader(MNISTDataset(X_test, y_test), batch_size=1, shuffle=False)
     
+    # Load the model, set it to evaluation mode
     model = import_architecture(model_name)().to(device)
     model.load_state_dict(torch.load(f"architectures/{model_name}/model.pth", map_location=device))
     model.eval()
@@ -37,6 +39,9 @@ def main(
     predictions = []
     ground_truths = []
     os.makedirs(f"architectures/{model_name}/predictions", exist_ok=True)
+    
+    # Run each sample through the model, record accuracy, and save some figures
+    # Aside from the saving this is not very different from feedforward_batch in train.py
     for batch_idx, (batch_X, batch_y) in enumerate(test_loader):
         batch_X, batch_y = batch_X.to(device), batch_y.to(device)
         prediction = model(batch_X)
@@ -44,6 +49,7 @@ def main(
         predictions.append(prediction.argmax(dim=1).item())
         ground_truths.append(batch_y.argmax(dim=1).item())
         
+        # I can disable saving if need be - this much file i/o is slow
         if save_figures:
             img = batch_X.squeeze().detach().cpu().numpy()
             plt.imshow(img, cmap="gray")
