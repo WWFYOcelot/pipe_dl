@@ -83,9 +83,9 @@ def main(
     samples,
     epochs
 ):
-    #If you have CUDA installed and working, it's faster to train on GPU.
-    #Otherwise, set this to "cpu"
-    device = torch.device("cuda")
+    #If you have CUDA installed and working, it's faster to train 
+    #   on GPU, so you can set the device to "cuda"
+    device = torch.device("cpu")
 
     #Load the MNIST dataset torchvision
     mnist_train = torchvision.datasets.MNIST(root="./data/", train=True, download=True)

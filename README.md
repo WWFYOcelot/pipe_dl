@@ -12,6 +12,7 @@ Open your terminal/command prompt and run:
 
 ```bash
 git clone https://github.com/tusineav/torch_mnist
+cd torch_mnist
 ```
 
 ### 3. Install Python
