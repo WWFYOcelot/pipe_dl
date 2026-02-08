@@ -58,7 +58,7 @@ def main(
             plt.savefig(f"architectures/{model_name}/predictions/sample_{batch_idx:.2f}.png")
             plt.cla()
         
-    test_accuracy = np.mean(np.array(predictions) == np.array(ground_truths))
+    test_accuracy = np.mean(np.array(predictions) == np.array(ground_truths)) * 100
     print(f"Testing dataset accuracy: {test_accuracy}")
 
 if __name__ == "__main__":
