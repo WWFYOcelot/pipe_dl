@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data import DataLoader
 import torchvision
 
 import numpy as np
@@ -25,8 +26,8 @@ def main(
 
     # Load the test dataset
     history = pickle.load(open(f"architectures/{model_name}/training_history.pickle", "rb"))
-    X_test = metadata['X_test']
-    y_test = metadata['y_test']
+    X_test = history['X_test']
+    y_test = history['y_test']
     
     # Define the data loader for the testing data
     test_loader = DataLoader(MNISTDataset(X_test, y_test), batch_size=1, shuffle=False)
