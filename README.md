@@ -3,7 +3,6 @@
 
 ### 1. Install Git
 
-**Windows:**
 Download and install from [git-scm.com](https://git-scm.com/install/)
 
 ### 2. Clone the Repository
