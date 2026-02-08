@@ -105,14 +105,13 @@ def main(
     '''
     #Graph two samples for reference
     fig, ax = plt.subplots(1, 2)
-    ax[0].imshow(x_train[0], cmap='gray')
-    ax[1].imshow(x_train[1], cmap='gray')
-    ax[0].set_title("Label: " + str(y_train[0]))
-    ax[1].set_title("Label: " + str(y_train[1]))
+    ax[0].imshow(X[0], cmap='gray')
+    ax[1].imshow(X[1], cmap='gray')
+    ax[0].set_title("Label: " + str(y[0]))
+    ax[1].set_title("Label: " + str(y[1]))
     plt.show()
     exit()
     '''
-
     # Whether I want to debug or produce a less performant model, this allows me to cut down on the dataset size
     if samples:
         samples = int(samples)
