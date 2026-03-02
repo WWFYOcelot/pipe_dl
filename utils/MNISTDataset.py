@@ -23,9 +23,8 @@ class MNISTDataset(torch.utils.data.Dataset):
         # Convert to grayscale if image has channels
         if img.ndim == 3:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
         # Resize to 128x128
-        img = cv2.resize(img, (self.target_size, self.target_size), interpolation=cv2.INTER_AREA)
+        img = cv2.resize(img, (self.target_size, self.target_size), interpolation=cv2.INTER_NEAREST_EXACT)
 
         # Normalize to 0-1
         X = img.astype(np.float32) / 255.0

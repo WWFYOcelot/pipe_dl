@@ -104,10 +104,10 @@ def main(
 ):
     #If you have CUDA installed and working, it's faster to train 
     #   on GPU, so you can set the device to "cuda"
-    device = torch.device("cpu")
+    device = torch.device("cuda")
 
-    pos_image = cv2.imread("defect.png", cv2.IMREAD_GRAYSCALE)
-    neg_image = cv2.imread("nodefect.png", cv2.IMREAD_GRAYSCALE)
+    pos_image = cv2.imread("defect.png", cv2.IMREAD_ANYDEPTH)
+    neg_image = cv2.imread("nodefect.png", cv2.IMREAD_ANYDEPTH)
 
     X, y = create_binary_dataset(pos_image, neg_image, n=1000)
         
@@ -146,8 +146,8 @@ def main(
     # Data Loaders let us avoid loading the entire dataset in RAM all at once
     #   Using the data loader, a batch of samples is loaded on demand and the memory is freed after its used
     #   This sacrifices speed (more file i/o) for memory
-    train_loader = DataLoader(MNISTDataset(X_train, y_train), batch_size=8, shuffle=True)
-    val_loader = DataLoader(MNISTDataset(X_val, y_val), batch_size=8, shuffle=False)
+    train_loader = DataLoader(MNISTDataset(X_train, y_train), batch_size=64, shuffle=True)
+    val_loader = DataLoader(MNISTDataset(X_val, y_val), batch_size=64, shuffle=False)
     
     model = import_architecture(model_name)().to(device)
 
