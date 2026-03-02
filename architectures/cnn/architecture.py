@@ -10,7 +10,7 @@ class Network(torch.nn.Module):
         self.conv1 = torch.nn.Conv2d(1, 16, (3, 3), stride=(1, 1), padding=1)
 
         
-        self.fc1 = torch.nn.Linear(3136, 256)
+        self.fc1 = torch.nn.Linear(65536, 256)
         self.fc2 = torch.nn.Linear(256, 10)
 
         # The 3136 is not arbitrary

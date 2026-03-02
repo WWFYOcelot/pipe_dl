@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pickle
 import click
 import importlib
+import cv2
 
 from utils.MNISTDataset import MNISTDataset
 
@@ -73,6 +74,24 @@ def feedforward_batch(model, device, data_loader, optimizer, is_train=True):
     # Return the mean loss and accuracy of the model this epoch
     return np.mean(epoch_losses), epoch_accuracy
 
+def create_binary_dataset(pos_img, neg_img, n):
+    assert n % 2 == 0, "n must be even so it can be evenly split."
+
+    half = n // 2
+
+    # Duplicate images
+    X = np.array([pos_img] * half + [neg_img] * half)
+
+    # Labels: positive = 1, negative = 0
+    y = np.array([1] * half + [0] * half)
+
+    # Shuffle while preserving pairing
+    indices = np.random.permutation(n)
+    X = X[indices]
+    y = y[indices]
+
+    return X, y
+
 # Click provides a convenient interface for command line arguments
 @click.command(context_settings=dict(max_content_width=800))
 @click.option('-m', "--model_name", required=True, help="Model architecture to train.")
@@ -87,21 +106,11 @@ def main(
     #   on GPU, so you can set the device to "cuda"
     device = torch.device("cpu")
 
-    #Load the MNIST dataset torchvision
-    mnist_train = torchvision.datasets.MNIST(root="./data/", train=True, download=True)
-    mnist_test = torchvision.datasets.MNIST(root="./data/", train=False, download=True)
+    pos_image = cv2.imread("defect.png", cv2.IMREAD_GRAYSCALE)
+    neg_image = cv2.imread("nodefect.png", cv2.IMREAD_GRAYSCALE)
 
-    #MNIST has its own train/test split - I want to undo that and make my own
-    X = np.concatenate([mnist_train.data.numpy(), mnist_test.data.numpy()])
-    y = np.concatenate([mnist_train.targets.numpy(), mnist_test.targets.numpy()])
-    
-    #Shuffle X & y, preserving the 1-1 relationship
-    indices = list(range(0, len(X)))
-    np.random.shuffle(indices)
-    
-    X = X[indices]
-    y = y[indices]
-    
+    X, y = create_binary_dataset(pos_image, neg_image, n=1000)
+        
     '''
     #Graph two samples for reference
     fig, ax = plt.subplots(1, 2)
@@ -137,8 +146,8 @@ def main(
     # Data Loaders let us avoid loading the entire dataset in RAM all at once
     #   Using the data loader, a batch of samples is loaded on demand and the memory is freed after its used
     #   This sacrifices speed (more file i/o) for memory
-    train_loader = DataLoader(MNISTDataset(X_train, y_train), batch_size=64, shuffle=True)
-    val_loader = DataLoader(MNISTDataset(X_val, y_val), batch_size=64, shuffle=False)
+    train_loader = DataLoader(MNISTDataset(X_train, y_train), batch_size=8, shuffle=True)
+    val_loader = DataLoader(MNISTDataset(X_val, y_val), batch_size=8, shuffle=False)
     
     model = import_architecture(model_name)().to(device)
 
